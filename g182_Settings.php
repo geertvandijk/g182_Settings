@@ -47,17 +47,19 @@ class g182_Settings {
 
     public function activate() {
         $deps = array('Validator');
+        $msgs = '';
         $errors = 0;
         foreach ($deps as $dep) {
             $dep = 'g182_' . $dep;
             global $$dep;
             if (!isset($$dep)) {
-                //echo 'Dependency ' . $dep . ' missing <br />';
+                $msgs .= 'Dependency ' . $dep . ' missing <br />';
                 $errors++;
             }
+
         }
         if ($errors > 1) {
-            return false;
+            die($msgs);
         }
     }
 
