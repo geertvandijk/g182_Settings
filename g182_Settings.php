@@ -4,61 +4,109 @@ include_once(ABSPATH . 'wp-includes/wp-db.php');
 include_once(ABSPATH . 'wp-includes/pluggable.php');
 
 /*
-Plugin Name: Extra instellingen voor 7x7
-Description: Instellingenpagina voor 7x7.
+Plugin Name: Site-instellingen
+Description: Door 182code ontwikkelde instellingenplugin voor uw website.
 Author: Geert van Dijk
-Version: 1.0.0
+Version: 3.1.2
 */
 
-// Main plugin file, core logic and loading classes/files only
+// todo
+// [o] validatie (icm 182code validator?) - +0.2
+//      [n] easypeasy!
 
+class g182_Settings {
 
-class g182_Settings
-{
-    /**
-     * Holds the values to be used in the fields callbacks
-     */
     private $options;
+        
+    private $prefix;
+    private $title;
+    private $option_group;
 
-    /**
-     * Start up
-     */
-    public function __construct()
-    {
-        add_action( 'admin_menu', array( $this, 'add_plugin_page' ) );
-        add_action( 'admin_init', array( $this, 'page_init' ) );
+    private $settings_name;
+    private $settings_page;
+    
+    private $settings = array();
+    private $settings_callbacks = array();
+    
+    private $sections = array();
+
+    private $deps = array('Validator');
+    private $errors = array();
+
+    public function __construct() {
+        // dit hier aanpassen:
+        $this->prefix = '7x7_';
+        $this->title = 'Site-instellingen';
+        $this->option_group = $this->prefix . 'option_group';
+
+        $this->settings_name = $this->prefix . 'settings';
+        $this->settings_page = $this->prefix . 'setting-admin';
+        // klaar met aanpassen
+
+        add_action('admin_menu', array($this, 'add_settings_page'));
+        add_action('admin_init', array($this, 'page_init'));
+        add_action('admin_notices', array($this, 'admin_notices'));
+
     }
 
-    /**
-     * Add options page
-     */
-    public function add_plugin_page()
+    function admin_notices() {
+        $this->check_deps();
+
+        if (count($this->errors) > 0) {
+        ?>
+            <div class="updated">
+                <b>Warning:</b>
+                <ul>
+                <?php foreach ($this->errors as $error) { ?>
+                    <li>
+                        <?php echo $error; ?>
+                    </li>
+                <?php } ?>
+                </ul>
+            </div>
+        <?php
+        }   
+    }
+
+    public function check_deps() {
+        foreach($this->deps as $dep) {
+            $dep = 'g182_' . $dep;
+            global $$dep;
+            if (!isset($$dep)) {
+                $errors[] = 'Dependency ' . $dep . ' missing';
+            }
+        }
+    }
+
+    function add_section($id, $title, $info) {
+        $this->sections[$id] = array('title' => $title, 'info' => $info);
+    }
+
+    function add_setting($sectionid, $name, $desc, $type) {
+        $this->settings[$sectionid][$name] = array('desc' => $desc, 'type' => $type);
+    }
+    
+    public function add_settings_page()
     {
-        // This page will be under "Settings"
         add_options_page(
             'Extra instellingen', 
-            'Extra instellingen voor 7x7', 
+            $this->title, 
             'manage_options', 
-            '7x7-setting-admin', 
-            array( $this, 'create_admin_page' )
+            $this->settings_page, 
+            array($this, 'create_admin_page')
         );
     }
 
-    /**
-     * Options page callback
-     */
     public function create_admin_page()
     {
-        // Set class property
-        $this->options = get_option( '7x7_settings' );
+        $this->options = get_option($this->settings_name);
         ?>
         <div class="wrap">
-            <h2>Extra instellingen voor 7x7</h2>           
+            <h2><?php echo $this->title; ?></h2>           
             <form method="post" action="options.php">
             <?php
-                // This prints out all hidden setting fields
-                settings_fields( '7x7_option_group' );   
-                do_settings_sections( '7x7-setting-admin' );
+                settings_fields($this->option_group);   
+                do_settings_sections($this->settings_page);
                 submit_button(); 
             ?>
             </form>
@@ -66,95 +114,90 @@ class g182_Settings
         <?php
     }
 
-    /**
-     * Register and add settings
-     */
     public function page_init()
     {        
         register_setting(
-            '7x7_option_group', // Option group
-            '7x7_settings', // Option name
-            array( $this, 'sanitize' ) // Sanitize
+            $this->option_group,
+            $this->settings_name,
+            array($this, 'sanitize')
         );
 
         add_settings_section(
-            'setting_section_id', // ID
-            'Instellingen voor de 7x7 Waardenscan-site', // Title
-            array( $this, 'print_section_info' ), // Callback
-            '7x7-setting-admin' // Page
-        );  
+            $this->section_id,
+            $this->section_title,
+            array($this, 'print_section_info'),
+            $this->settings_page
+        );
 
-        add_settings_field(
-            '7x7_miniscan_url', 
-            'URL voor miniscan-logo (inclusief http://, of # voor geen verwijzing)', 
-            array( $this, 'miniscan_callback' ), 
-            '7x7-setting-admin', 
-            'setting_section_id'
-        );      
+        foreach ($this->sections as $id => $section) {
+            add_settings_section(
+                $id,
+                $title,
+                array($this, 'print_section_info'),
+                $this->settings_page
+            );
 
-        add_settings_field(
-            '7x7_miniscan_text', 
-            'Tekst bij miniscan-logo', 
-            array( $this, 'miniscan_text_callback' ), 
-            '7x7-setting-admin', 
-            'setting_section_id'
-        );      
-
-        add_settings_field(
-            '7x7_bloginmenu', 
-            'Blog weergeven in menu', 
-            array( $this, 'blogmenu_callback' ), 
-            '7x7-setting-admin', 
-            'setting_section_id'
-        );      
+            foreach ($this->settings[$id] as $name => $setting) {
+                $this->settings_callbacks[] = $this->prefix . $id . '-' . $name;
+                add_settings_field($name, $setting['desc'], array($this, $this->prefix . $id . '-' . $name), $this->settings_page, $id);
+            }           
+        }
     }
 
-    /**
-     * Sanitize each setting field as needed
-     *
-     * @param array $input Contains all settings fields as array keys
-     */
-    public function sanitize( $input )
+    // internal use; faster
+    private function get_val($name) {
+        $name = $this->prefix . $name;
+        $setting = isset($this->options[$name]) ? esc_attr($this->options[$name]) : '';
+        return $setting;
+    }
+
+    // external use; works in theme files etc.
+    public function get_setting($name) {
+        $name = $this->prefix.$name;
+        $options = get_option($this->settings_name);
+        $setting = $options[$name];
+        return $setting;
+    }
+
+    function __call($func, $params) {   
+        if (in_array($func, $this->settings_callbacks)) {
+            // validatie erin prikken?
+            $func_no_prefix = str_replace($this->prefix, '', $func);
+            $func_no_prefix = split('-', $func_no_prefix);
+            $sectionid = $func_no_prefix[0];
+            $settingname = $func_no_prefix[1];
+            $setting = $this->settings[$sectionid][$settingname];
+            
+            $value = $this->get_val($settingname);
+            switch($setting['type']) {
+                case 'textbox':
+                    echo '<input type="text" id="' . $func . '" name="' . $this->settings_name . '[' . $func . ']' . '" value="' . $value . '" />';
+                    break;
+                case 'textarea':
+                    echo '<textarea id="' . $func . '" name="' . $this->settings_name . '[' . $func . ']' . '">' . $value . '</textarea>';
+                    break;
+                case 'checkbox':
+                    echo '<input type="checkbox" id="' . $func . '" name="' . $this->settings_name . '[' . $func . ']' . '" value="1" . ' . checked(1, $value, false) . '/>';
+                    break;
+            }
+        }
+    }
+
+    public function sanitize($input)
     {
         return $input;
     }
 
-    /** 
-     * Print the Section text
-     */
-    public function print_section_info()
+    public function print_section_info($args)
     {
-        print '';
+        if (!!$this->sections[$args['id']]) {
+            echo '<h3>' . $this->sections[$args['id']]['title'] . '</h3>';
+            echo '<p>' . $this->sections[$args['id']]['info'] . '</p>';
+        }
     }
 
-    public function miniscan_callback()
-    {
-        printf(
-            '<input type="text" id="7x7_miniscan_url" name="7x7_settings[7x7_miniscan_url]" value="%s" />',
-            isset( $this->options['7x7_miniscan_url'] ) ? esc_attr( $this->options['7x7_miniscan_url']) : ''
-        );
-    }
-
-    public function miniscan_text_callback()
-    {
-        printf(
-            '<input type="text" id="7x7_miniscan_text" name="7x7_settings[7x7_miniscan_text]" value="%s" />',
-            isset( $this->options['7x7_miniscan_text'] ) ? esc_attr( $this->options['7x7_miniscan_text']) : ''
-        );
-    }
-
-    public function blogmenu_callback()
-    {
-    	$options = get_option('7x7_settings');
-
-	    $html = '<input type="checkbox" id="7x7_bloginmenu" name="7x7_settings[7x7_bloginmenu]" value="1"' . checked( 1, $options['7x7_bloginmenu'], false ) . '/>';
-	    
-
-	    echo $html;
-    }
 }
 
-if( is_admin() ) {
-$my_settings_page = new g182_Settings();
-}
+add_action("init", "g182_Settings_Init", 1);
+function g182_Settings_Init() { global $g182_Settings; $g182_Settings = new g182_Settings(); }
 ?>
