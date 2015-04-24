@@ -7,7 +7,7 @@ include_once(ABSPATH . 'wp-includes/pluggable.php');
 Plugin Name: Site-instellingen
 Description: Door 182code ontwikkelde instellingenplugin voor uw website.
 Author: Geert van Dijk
-Version: 3.1.3
+Version: 3.1.4
 */
 
 // todo
