@@ -7,7 +7,7 @@ include_once(ABSPATH . 'wp-includes/pluggable.php');
 Plugin Name: Site-instellingen
 Description: Door 182code ontwikkelde instellingenplugin voor uw website.
 Author: Geert van Dijk
-Version: 3.1.2
+Version: 3.1.3
 */
 
 // todo
@@ -31,7 +31,6 @@ class g182_Settings {
     private $sections = array();
 
     private $deps = array('Validator');
-    private $errors = array();
 
     public function __construct() {
         // dit hier aanpassen:
@@ -45,35 +44,15 @@ class g182_Settings {
 
         add_action('admin_menu', array($this, 'add_settings_page'));
         add_action('admin_init', array($this, 'page_init'));
-        add_action('admin_notices', array($this, 'admin_notices'));
 
     }
 
-    function admin_notices() {
-        $this->check_deps();
-
-        if (count($this->errors) > 0) {
-        ?>
-            <div class="updated">
-                <b>Warning:</b>
-                <ul>
-                <?php foreach ($this->errors as $error) { ?>
-                    <li>
-                        <?php echo $error; ?>
-                    </li>
-                <?php } ?>
-                </ul>
-            </div>
-        <?php
-        }   
-    }
-
-    public function check_deps() {
+    public function activate() {
         foreach($this->deps as $dep) {
             $dep = 'g182_' . $dep;
             global $$dep;
             if (!isset($$dep)) {
-                $errors[] = 'Dependency ' . $dep . ' missing';
+                echo 'Dependency ' . $dep . ' missing <br />';
             }
         }
     }
@@ -200,4 +179,8 @@ class g182_Settings {
 
 add_action("init", "g182_Settings_Init", 1);
 function g182_Settings_Init() { global $g182_Settings; $g182_Settings = new g182_Settings(); }
+
+register_activation_hook(__FILE__, array( 'g182_Settings', 'activate' ));
+
+
 ?>
