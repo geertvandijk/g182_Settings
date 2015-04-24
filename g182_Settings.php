@@ -30,8 +30,6 @@ class g182_Settings {
     
     private $sections = array();
 
-    private $deps = array('Validator');
-
     public function __construct() {
         // dit hier aanpassen:
         $this->prefix = '7x7_';
@@ -48,7 +46,8 @@ class g182_Settings {
     }
 
     public function activate() {
-        foreach($this->deps as $dep) {
+        $deps = array('Validator');
+        foreach ($deps as $dep) {
             $dep = 'g182_' . $dep;
             global $$dep;
             if (!isset($$dep)) {
