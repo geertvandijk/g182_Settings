@@ -7,7 +7,7 @@ include_once(ABSPATH . 'wp-includes/pluggable.php');
 Plugin Name: Site-instellingen
 Description: Door 182code ontwikkelde instellingenplugin voor uw website.
 Author: Geert van Dijk
-Version: 3.1.5
+Version: 3.1.7
 */
 
 // todo
@@ -42,24 +42,31 @@ class g182_Settings {
 
         add_action('admin_menu', array($this, 'add_settings_page'));
         add_action('admin_init', array($this, 'page_init'));
-
     }
 
-    public function activate() {
+    function activate() {
         $deps = array('Validator');
         $msgs = '';
         $errors = 0;
+        $plugin_dir = plugin_dir_path( __FILE__ );
+        $plugin_dir = str_replace(get_class($this) . '/', '', $plugin_dir);
+        $plugins = array();
+
         foreach ($deps as $dep) {
             $dep = 'g182_' . $dep;
             global $$dep;
-            if (!isset($$dep)) {
-                //try to activate dep first, then throw error only if missing
-                $msgs .= 'Dependency ' . $dep . ' missing <br />';
+            if (!isset($$dep)) {       
+                $plugins[] = $plugin_dir . $dep . '/' . $dep . '.php';    
+                $msgs .= 'Dependency ' . $dep . ' missing or broken (is it enabled?)<br />';
                 $errors++;
             }
-
         }
-        if ($errors > 1) {
+
+        if ($errors > 0) {
+            $msgs .= '<a href="' . get_admin_url(null, 'plugins.php') . '">Back to plugins page</a>';
+            
+            deactivate_plugins(basename( __FILE__ ));
+        
             wp_die($msgs);
         }
     }
@@ -184,7 +191,7 @@ class g182_Settings {
 
 }
 
-add_action("init", "g182_Settings_Init", 1);
+add_action('init', 'g182_Settings_Init', 1);
 function g182_Settings_Init() { global $g182_Settings; $g182_Settings = new g182_Settings(); }
 
 register_activation_hook(__FILE__, array( 'g182_Settings', 'activate' ));
