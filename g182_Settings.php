@@ -7,7 +7,7 @@ include_once(ABSPATH . 'wp-includes/pluggable.php');
 Plugin Name: Site-instellingen
 Description: Door 182code ontwikkelde instellingenplugin voor uw website.
 Author: Geert van Dijk
-Version: 3.1.4
+Version: 3.1.5
 */
 
 // todo
@@ -53,13 +53,14 @@ class g182_Settings {
             $dep = 'g182_' . $dep;
             global $$dep;
             if (!isset($$dep)) {
+                //try to activate dep first, then throw error only if missing
                 $msgs .= 'Dependency ' . $dep . ' missing <br />';
                 $errors++;
             }
 
         }
         if ($errors > 1) {
-            die($msgs);
+            wp_die($msgs);
         }
     }
 
